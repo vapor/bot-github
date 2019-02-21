@@ -1,6 +1,16 @@
 import Vapor
 
+fileprivate struct BuildParameters: Content {
+    let circleJob: String
+    
+    enum CodingKeys: String, CodingKey {
+        case circleJob = "CIRCLE_JOB"
+    }
+}
+
 public struct CircleCIWebhookBackingPayload: Content {
+    fileprivate let buildParams: BuildParameters
+    
     let buildNumber: Int
     let reponame: String
     let username: String
@@ -9,6 +19,7 @@ public struct CircleCIWebhookBackingPayload: Content {
         case buildNumber = "build_num"
         case reponame
         case username
+        case buildParams = "build_parameters"
     }
 }
 
@@ -25,6 +36,10 @@ public struct CircleCIWebhook: Content {
     
     public var username: String {
         return payload.username
+    }
+    
+    public var buildName: String {
+        return payload.buildParams.circleJob
     }
 }
 

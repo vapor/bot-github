@@ -19,17 +19,17 @@ public struct PullRequest: Content {
 }
 
 public struct CircleCIBuild: Content {
-//    private let buildParams: BuildParameters
+    private let buildParams: BuildParameters
     
     public let steps: [CircleCIBuildStep]
     public let pullRequests: [PullRequest]
-//    public var job: String {
-//        return self.buildParams.circleJob
-//    }
+    public var job: String {
+        return self.buildParams.circleJob
+    }
     
     
     enum CodingKeys: String, CodingKey {
-//        case buildParams = "build_parameters"
+        case buildParams = "build_parameters"
         case steps
         case pullRequests = "pull_requests"
     }
