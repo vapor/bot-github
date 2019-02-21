@@ -30,4 +30,8 @@ public func routes(_ router: Router) throws {
         print(comment.body)
         return req.future(.ok)
     }
+    
+    router.post("circle") { (req) -> String in
+        return "hello"
+    }
 }

@@ -15,6 +15,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     guard let githubAuthToken = Environment.get("GITHUB_AUTH_TOKEN") else { fatalError() }
     let githubService = GithubService(accessToken: githubAuthToken)
     services.register(githubService)
+    
+    // CircleCI service
+    guard let circleCIAuthToken = Environment.get("CIRCLECI_AUTH_TOKEN") else { fatalError() }
+    let circleCIService = CircleCIService(authToken: circleCIAuthToken)
+    services.register(circleCIService)
 
     // Register middleware
     var middlewares = MiddlewareConfig() // Create _empty_ middleware config
