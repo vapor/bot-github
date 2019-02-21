@@ -19,9 +19,12 @@ public struct CircleCIService: Service {
     
     
     public func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) throws -> Future<CircleCIBuildOutput> {
-        guard let step = (build.steps.first { $0.name == buildStep }),
+        guard
+            let step = (build.steps.first { $0.name == buildStep }),
             let outputURL = step.actions[0].outputURL
-            else { return req.future(error: Abort(.notFound)) }
+            else {
+                return req.future(error: Abort(.notFound))
+            }
         
         return try req.client().get(outputURL).map { response in
             return try response.content.syncDecode([CircleCIBuildOutput].self)[0]
