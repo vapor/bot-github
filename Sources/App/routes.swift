@@ -31,7 +31,31 @@ public func routes(_ router: Router) throws {
         return req.future(.ok)
     }
     
-    router.post("circle") { (req) -> String in
-        return "hello"
+    router.post(CircleCIWebhook.self, at: "circle") { (req, webhook) -> Future<String> in
+        let circle = try req.make(CircleCIService.self)
+        let github = try req.make(GithubService.self)
+        
+        let repo = "\(webhook.username)/\(webhook.repoName)"
+        
+        return try circle.getBuild(
+            number: webhook.buildNumber,
+            repo: repo,
+            on: req
+        ).flatMap { build -> Future<(CircleCIBuildOutput, PullRequest)> in
+            let pullRequest = build.pullRequests[0]
+            return try circle.getOutput(for: "Uploading artifacts", from: build, on: req).map { ($0, pullRequest) }
+        }.flatMap { (output, pullRequest) -> Future<CreateCommentResponse> in
+            guard
+                let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
+                let issueNumber = Int(issueNumberString)
+                else { throw Abort(.notFound) }
+            
+            return try github.postComment(
+                repo: repo,
+                issue: issueNumber,
+                body: "Build finished",
+                on: req
+            )
+        }.transform(to: "hello")
     }
 }
