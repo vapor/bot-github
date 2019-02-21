@@ -11,10 +11,23 @@ public func routes(_ router: Router) throws {
     router.get("hello") { req in
         return "Hello, world!"
     }
-
-    // Example of configuring a controller
-    let todoController = TodoController()
-    router.get("todos", use: todoController.index)
-    router.post("todos", use: todoController.create)
-    router.delete("todos", Todo.parameter, use: todoController.delete)
+    
+    router.post(GithubWebhook.self, at: "git") { (req, webhook) -> Future<HTTPResponseStatus> in
+        let comment = webhook.comment
+        let repo = webhook.repository
+        let issue = webhook.issue
+       
+        if comment.body.contains("@vapor-bot") {
+            let github = try req.make(GithubService.self)
+            return try github.postComment(
+                repo: repo.fullName,
+                issue: issue.number,
+                body: "This is an automated response",
+                on: req
+            ).transform(to: .ok)
+        }
+        
+        print(comment.body)
+        return req.future(.ok)
+    }
 }
