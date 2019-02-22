@@ -70,7 +70,6 @@ public func routes(_ router: Router) throws {
             }
         }
         
-        print(comment.body)
         return req.future(.ok)
     }
     
@@ -94,7 +93,9 @@ public func routes(_ router: Router) throws {
             guard
                 let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
                 let issueNumber = Int(issueNumberString)
-                else { throw Abort(.notFound) }
+                else {
+                    throw Abort(.notFound)
+                }
             
             guard let testResults = try? testOutputToTestResults(output: output.message) else {
                 return try github.postComment(
@@ -107,12 +108,12 @@ public func routes(_ router: Router) throws {
             
             var table =
 """
-| Expected | Average |
-| --- | --- |
+| Test | Expected | Average | Change |
+| --- | --- | --- | --- |
 
 """
             let rows: String = testResults.map { result in
-                "| \(result.expected) | \(result.average) |"
+                "| \(result.name) | \(result.expected) | \(result.average) | \(result.change) |"
             }.joined(separator: "\n")
             
             table.append(contentsOf: rows)
@@ -127,8 +128,10 @@ public func routes(_ router: Router) throws {
     }
     
     struct TestResults: Codable {
+        public let name: String
         public let expected: Double
         public let average: Double
+        public let change: String
     }
     
     enum OutputParsingError: Error {
@@ -157,14 +160,18 @@ public func routes(_ router: Router) throws {
         
         guard filterNonPerformance.count >= 3 else { throw OutputParsingError.missingTestCases }
         
-        let testResults = filterNonPerformance[2...].map { test in
+        let testResults = filterNonPerformance.map { (test: String.SubSequence) -> (name: String, expected: Double, average: Double, change: String) in
+            let expected = Double(matches(for: "expected: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
+            let average = Double(matches(for: "average: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
             return (
-                expected: Double(matches(for: "expected: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!,
-                average: Double(matches(for: "average: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
+                name: String(matches(for: ".*\\(\\)", in: String(test))[0].split(separator: "(")[0]),
+                expected: expected,
+                average: average,
+                change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
             )
         }
         
-        let codableResults = testResults.map { TestResults(expected: $0.expected, average: $0.average) }
+        let codableResults = testResults.map { TestResults(name: $0.name, expected: $0.expected, average: $0.average, change: $0.change) }
         
         return codableResults
     }
