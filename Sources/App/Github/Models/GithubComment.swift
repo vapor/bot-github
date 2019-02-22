@@ -3,6 +3,7 @@ import Vapor
 public struct GithubComment: Content {
     public let id: Int
     public let body: String
+    public let user: GithubUser
     //    "comment": {
     //        "url": "https://api.github.com/repos/twof/FlaskOnAWS/issues/comments/465772859",
     //        "html_url": "https://github.com/twof/FlaskOnAWS/pull/3#issuecomment-465772859",

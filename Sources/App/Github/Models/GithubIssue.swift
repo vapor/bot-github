@@ -6,6 +6,16 @@ public struct GithubIssue: Content {
     public let user: GithubUser
     public let title: String
     public let body: String
+    public let pullRequest: GithubShortFormPullRequest?
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case number
+        case user
+        case title
+        case body
+        case pullRequest = "pull_request"
+    }
     //    "issue": {
     //        "url": "https://api.github.com/repos/twof/FlaskOnAWS/issues/3",
     //        "repository_url": "https://api.github.com/repos/twof/FlaskOnAWS",

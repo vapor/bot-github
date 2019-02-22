@@ -1,5 +1,17 @@
 import Vapor
 
+public struct CircleCIRunJobBody: Content {
+    public static var defaultContentType: MediaType {
+        return .urlEncodedForm
+    }
+    
+    let buildParameters: String
+    
+    enum CodingKeys: String, CodingKey {
+        case buildParameters = "build_parameters[CIRCLE_JOB]"
+    }
+}
+
 public struct CircleCIService: Service {
     public let authToken: String
     
@@ -29,6 +41,18 @@ public struct CircleCIService: Service {
         return try req.client().get(outputURL).map { response in
             return try response.content.syncDecode([CircleCIBuildOutput].self)[0]
         }
+    }
+    
+    public func start(job: String, repo: String, branch: String, on req: Request) throws -> Future<String> {
+        let requestURL = "https://circleci.com/api/v1.1/project/github/\(repo)/tree/\(branch)?circle-token=\(self.authToken)"
+        
+        return try req.client().post(requestURL, beforeSend: { request in
+            let body = CircleCIRunJobBody(buildParameters: job)
+            try request.content.encode(body)
+        }).map { response -> Response in
+            print(response)
+            return response
+        }.transform(to: "hello")
     }
     
 }

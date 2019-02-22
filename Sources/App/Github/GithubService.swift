@@ -19,4 +19,6 @@ public struct GithubService: Service {
             return try response.content.decode(CreateCommentResponse.self)
         }
     }
+    
+//    public func getPermissionLevel(for username: String, for repo: String) throws -> Future<>
 }
