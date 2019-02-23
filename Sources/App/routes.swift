@@ -24,7 +24,7 @@ public func routes(_ router: Router) throws {
             let commands = comment.body.replacingOccurrences(of: "@vapor-bot ", with: "🔤").split(separator: "🔤")
             let github = try req.make(GithubService.self)
             guard commands.count >= 1 else {
-                return try github.postComment(
+                return github.postComment(
                     repo: repo.fullName,
                     issue: issue.number,
                     body: "Sorry? Didn't catch that.",
@@ -38,7 +38,7 @@ public func routes(_ router: Router) throws {
                 let circle = try req.make(CircleCIService.self)
                 
                 guard let pullRequest = webhook.issue.pullRequest else {
-                    return try github.postComment(
+                    return github.postComment(
                         repo: repo.fullName,
                         issue: issue.number,
                         body: "Unknown command",
@@ -50,9 +50,9 @@ public func routes(_ router: Router) throws {
                     let pullRequestHead = try response.content.syncDecode(GithubPullRequest.self).head
                     let branchName = pullRequestHead.name
                     
-                    return try circle.start(job: "linux-performance", repo: repo.fullName, branch: branchName, on: req)
+                    return circle.start(job: "linux-performance", repo: repo.fullName, branch: branchName, on: req)
                 }.flatMap { _ -> Future<CreateCommentResponse> in
-                    return try github.postComment(
+                    return github.postComment(
                         repo: repo.fullName,
                         issue: issue.number,
                         body: "Starting performance test",
@@ -61,7 +61,7 @@ public func routes(_ router: Router) throws {
                 }.transform(to: .ok)
                 
             default:
-                return try github.postComment(
+                return github.postComment(
                     repo: repo.fullName,
                     issue: issue.number,
                     body: "Unknown command",
@@ -82,7 +82,7 @@ public func routes(_ router: Router) throws {
         
         let repo = "\(webhook.username)/\(webhook.repoName)"
         
-        return try getOutput(for: webhook.buildNumber, repo: repo, step: "swift test", on: req)
+        return getOutput(for: webhook.buildNumber, repo: repo, step: "swift test", on: req)
             .flatMap { (output, pullRequest) -> Future<CreateCommentResponse> in
                 guard
                     let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
@@ -92,7 +92,7 @@ public func routes(_ router: Router) throws {
                     }
                 
                 guard let testResults = try? testOutputToTestResults(output: output.message) else {
-                    return try github.postComment(
+                    return github.postComment(
                         repo: repo,
                         issue: issueNumber,
                         body: "Performance tests failed in an unexpected way",
@@ -112,7 +112,7 @@ public func routes(_ router: Router) throws {
                 
                 table.append(contentsOf: rows)
                 
-                return try github.postComment(
+                return github.postComment(
                     repo: repo,
                     issue: issueNumber,
                     body: table,
@@ -127,21 +127,27 @@ public func routes(_ router: Router) throws {
         step: String,
         on req: Request,
         retries: Int = 3
-    ) throws -> Future<(CircleCIBuildOutput, PullRequest)> {
-        guard retries != 0 else { throw Abort(.internalServerError) }
+    ) -> Future<(CircleCIBuildOutput, PullRequest)> {
+        guard retries != 0 else { return req.future(error: Abort(.internalServerError)) }
+        let circle: CircleCIService
         
-        let circle = try req.make(CircleCIService.self)
-        return try circle.getBuild(
+        do {
+            circle = try req.make(CircleCIService.self)
+        } catch {
+            return req.future(error: error)
+        }
+       
+        return circle.getBuild(
             number: buildNumber,
             repo: repo,
             on: req
         ).flatMap { build -> Future<(CircleCIBuildOutput, PullRequest)> in
             let pullRequest = build.pullRequests[0]
-            return try circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
+            return circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
         }.catchFlatMap { (error) -> Future<(CircleCIBuildOutput, PullRequest)> in
             if let error = error as? CircleCIService.CircleCIError, error == .noOutputURL {
                 sleep(1)
-                return try getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
+                return getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
             }
             throw error
         }
@@ -160,7 +166,6 @@ public func routes(_ router: Router) throws {
     
     func testOutputToTestResults(output: String) throws -> [TestResults] {
         func matches(for regex: String, in text: String) -> [String] {
-            
             do {
                 let regex = try NSRegularExpression(pattern: regex)
                 let results = regex.matches(in: text,
