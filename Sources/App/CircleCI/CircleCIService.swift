@@ -30,15 +30,29 @@ public struct CircleCIService: Service {
         }
     }
     
-    
-    public func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) throws -> Future<CircleCIBuildOutput> {
+    public func getOutput(
+        for buildStep: String,
+        from build: CircleCIBuild,
+        on req: Request,
+        retries: Int = 3
+    ) throws -> Future<CircleCIBuildOutput> {
         print("BUILD_OBJECT:", build)
-        guard
-            let step = (build.steps.first { $0.name == buildStep }),
-            let outputURL = step.actions[0].outputURL
-            else {
-                return req.future(error: Abort(.notFound))
+        
+        // If the build step is missing, that's actually a problem and should be reported
+        guard let step = (build.steps.first { $0.name == buildStep }) else {
+            return req.future(error: Abort(.notFound))
+        }
+        
+        // It's expected that sometimes the outputURL won't exist yet, because circle
+        // reports back to the webhook before finishing the output upload
+        guard let outputURL = step.actions[0].outputURL else {
+            guard retries != 0 else {
+                throw Abort(HTTPStatus.internalServerError)
             }
+           
+            sleep(1)
+            return try self.getOutput(for: buildStep, from: build, on: req, retries: retries - 1)
+        }
         
         return try req.client().get(outputURL).map { response in
             return try response.content.syncDecode([CircleCIBuildOutput].self)[0]
