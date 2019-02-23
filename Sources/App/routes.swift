@@ -75,7 +75,7 @@ public func routes(_ router: Router) throws {
     
     router.post(CircleCIWebhook.self, at: "circle") { (req, webhook) -> Future<HTTPResponseStatus> in
         print("test starting", webhook.buildName)
-        guard webhook.buildName == "linux-performance" else { throw Abort(.ok) }
+        guard webhook.buildName == "linux-performance" else { return req.future(.ok) }
      
         let circle = try req.make(CircleCIService.self)
         let github = try req.make(GithubService.self)

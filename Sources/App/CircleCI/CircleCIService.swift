@@ -23,6 +23,7 @@ public struct CircleCIService: Service {
         let requestURL = "https://circleci.com/api/v1.1/project/github/\(repo)/\(number)?circle-token=\(self.authToken)"
        
         return try req.client().get(requestURL).flatMap { response in
+            print("BUILD_RESPONSE:", response)
             response.http.headers.replaceOrAdd(name: .contentType, value: "application/json")
             let build = try response.content.decode(CircleCIBuild.self)
             return build
@@ -31,6 +32,7 @@ public struct CircleCIService: Service {
     
     
     public func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) throws -> Future<CircleCIBuildOutput> {
+        print("BUILD_OBJECT:", build)
         guard
             let step = (build.steps.first { $0.name == buildStep }),
             let outputURL = step.actions[0].outputURL
