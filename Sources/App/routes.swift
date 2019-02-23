@@ -82,49 +82,69 @@ public func routes(_ router: Router) throws {
         
         let repo = "\(webhook.username)/\(webhook.repoName)"
         
-        return try circle.getBuild(
-            number: webhook.buildNumber,
-            repo: repo,
-            on: req
-        ).flatMap { build -> Future<(CircleCIBuildOutput, PullRequest)> in
-            let pullRequest = build.pullRequests[0]
-            return try circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
-        }.flatMap { (output, pullRequest) -> Future<CreateCommentResponse> in
-            guard
-                let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
-                let issueNumber = Int(issueNumberString)
-                else {
-                    throw Abort(.notFound)
+        return try getOutput(for: webhook.buildNumber, repo: repo, step: "swift test", on: req)
+            .flatMap { (output, pullRequest) -> Future<CreateCommentResponse> in
+                guard
+                    let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
+                    let issueNumber = Int(issueNumberString)
+                    else {
+                        throw Abort(.notFound)
+                    }
+                
+                guard let testResults = try? testOutputToTestResults(output: output.message) else {
+                    return try github.postComment(
+                        repo: repo,
+                        issue: issueNumber,
+                        body: "Performance tests failed in an unexpected way",
+                        on: req
+                    )
                 }
-            
-            guard let testResults = try? testOutputToTestResults(output: output.message) else {
-                return try github.postComment(
-                    repo: repo,
-                    issue: issueNumber,
-                    body: "Performance tests failed in an unexpected way",
-                    on: req
-                )
-            }
-            
-            var table =
+                
+                var table =
 """
 | Test | Expected | Average | Change |
 | --- | --- | --- | --- |
 
 """
-            let rows: String = testResults.map { result in
-                "| \(result.name) | \(result.expected) | \(result.average) | \(result.change) |"
-            }.joined(separator: "\n")
-            
-            table.append(contentsOf: rows)
-            
-            return try github.postComment(
+                let rows: String = testResults.map { result in
+                    "| \(result.name) | \(result.expected) | \(result.average) | \(result.change) |"
+                }.joined(separator: "\n")
+                
+                table.append(contentsOf: rows)
+                
+                return try github.postComment(
+                    repo: repo,
+                    issue: issueNumber,
+                    body: table,
+                    on: req
+                )
+            }.transform(to: .ok)
+    }
+    
+    func getOutput(
+        for buildNumber: Int,
+        repo: String,
+        step: String,
+        on req: Request,
+        retries: Int = 3
+    ) throws -> Future<(CircleCIBuildOutput, PullRequest)> {
+        guard retries != 0 else { throw Abort(.internalServerError) }
+        
+        let circle = try req.make(CircleCIService.self)
+        
+        do {
+            return try circle.getBuild(
+                number: buildNumber,
                 repo: repo,
-                issue: issueNumber,
-                body: table,
                 on: req
-            )
-        }.transform(to: .ok)
+            ).flatMap { build -> Future<(CircleCIBuildOutput, PullRequest)> in
+                let pullRequest = build.pullRequests[0]
+                return try circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
+            }
+        } catch CircleCIService.CircleCIError.noOutputURL {
+            sleep(1)
+            return try getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
+        }
     }
     
     struct TestResults: Codable {
