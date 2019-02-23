@@ -62,22 +62,15 @@ public func routes(_ router: Router) throws {
                     )
                 }
                 
-                var table =
-"""
-| Test | Expected | Average | Change |
-| --- | --- | --- | --- |
-
-"""
-                let rows: String = testResults.map { result in
-                    "| \(result.name) | \(result.expected) | \(result.average) | \(result.change) |"
-                }.joined(separator: "\n")
-                
-                table.append(contentsOf: rows)
+                let tableGenerator = GithubTableGenerator(
+                    columns: "Name", "Expected", "Actual", "Change",
+                    rows: testResults
+                )
                 
                 return github.postComment(
                     repo: repo,
                     issue: issueNumber,
-                    body: table,
+                    body: tableGenerator.table,
                     on: req
                 )
             }.transform(to: .ok)
@@ -113,13 +106,6 @@ public func routes(_ router: Router) throws {
             }
             throw error
         }
-    }
-    
-    struct TestResults: Codable {
-        public let name: String
-        public let expected: Double
-        public let average: Double
-        public let change: String
     }
     
     enum OutputParsingError: Error {
