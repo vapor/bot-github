@@ -131,19 +131,19 @@ public func routes(_ router: Router) throws {
         guard retries != 0 else { throw Abort(.internalServerError) }
         
         let circle = try req.make(CircleCIService.self)
-        
-        do {
-            return try circle.getBuild(
-                number: buildNumber,
-                repo: repo,
-                on: req
-            ).flatMap { build -> Future<(CircleCIBuildOutput, PullRequest)> in
-                let pullRequest = build.pullRequests[0]
-                return try circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
+        return try circle.getBuild(
+            number: buildNumber,
+            repo: repo,
+            on: req
+        ).flatMap { build -> Future<(CircleCIBuildOutput, PullRequest)> in
+            let pullRequest = build.pullRequests[0]
+            return try circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
+        }.catchFlatMap { (error) -> Future<(CircleCIBuildOutput, PullRequest)> in
+            if let error = error as? CircleCIService.CircleCIError, error == .noOutputURL {
+                sleep(1)
+                return try getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
             }
-        } catch CircleCIService.CircleCIError.noOutputURL {
-            sleep(1)
-            return try getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
+            throw error
         }
     }
     
