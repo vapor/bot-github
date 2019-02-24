@@ -26,5 +26,30 @@ public struct GithubService: Service {
         }
     }
     
-//    public func getPermissionLevel(for username: String, for repo: String) throws -> Future<>
+    public enum PermissionLevel: String, Codable {
+        case read
+        case write
+        case admin
+    }
+    public struct GithubPermissionLevel: Content {
+        public let level: PermissionLevel
+        
+        enum CodingKeys: String, CodingKey {
+            case level = "permission"
+        }
+    }
+    
+    public func getPermissionLevel(username: String, repo: String, on req: Request) -> Future<GithubPermissionLevel> {
+        let requestURL = "https://api.github.com/repos/\(repo)/collaborators/\(username)/permission?access_token=\(self.accessToken)"
+ 
+        do {
+            let client = try req.client()
+            
+            return client.get(requestURL).flatMap { response in
+                return try response.content.decode(GithubPermissionLevel.self)
+            }
+        } catch {
+            return req.future(error: error)
+        }
+    }
 }
