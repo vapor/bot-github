@@ -11,10 +11,9 @@ public func routes(_ router: Router) throws {
     router.get("hello") { req in
         return "Hello, world!"
     }
-    
-    router.post("git") { req -> Future<Response> in
+   
+    router.post(GithubWebhook.self, at: "git") { (req, webhook) -> Future<Response> in
         guard
-            let webhook = try? req.content.syncDecode(GithubWebhook.self),
             let comment = webhook.comment,
             comment.user.login != "vapor-bot"
             else { return try HTTPStatus.ok.encode(for: req) }

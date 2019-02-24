@@ -11,7 +11,11 @@ public struct GithubTableGenerator {
     
     public init(columns: String..., rows: [Rowable]) {
         table.append("| \(columns.joined(separator: " | ")) |\n")
-       
+        
+        let separator = "| \([String](repeating: "---", count: columns.count).joined(separator: " | ")) |\n"
+        
+        table.append(separator)
+        
         let rows: String = rows.map { result in
             "| \(result.fields().joined(separator: " | ")) |"
         }.joined(separator: "\n")
