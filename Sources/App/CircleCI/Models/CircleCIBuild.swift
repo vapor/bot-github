@@ -8,21 +8,11 @@ fileprivate struct BuildParameters: Content {
     }
 }
 
-public struct PullRequest: Content {
-    let headCommit: String
-    let url: URL
-    
-    enum CodingKeys: String, CodingKey {
-        case headCommit = "head_sha"
-        case url
-    }
-}
-
 public struct CircleCIBuild: Content {
     private let buildParams: BuildParameters
     
     public let steps: [CircleCIBuildStep]
-    public let pullRequests: [PullRequest]
+    public let pullRequests: [CircleCIPullRequest]
     public var job: String {
         return self.buildParams.circleJob
     }
