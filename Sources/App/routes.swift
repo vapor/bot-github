@@ -86,18 +86,21 @@ public func routes(_ router: Router) throws {
                             .execute(
                                 output: output.message,
                                 date: build.startTime,
-                                repoName: build.repoName
+                                repoName: build.repoName,
+                                on: req
                         ) else {
                             return req.future(error: ParsingError.parsingFailed)
                         }
 
                         if maybeTracked != nil {
-                            return testResults.map { $0.save(on: req) }.flatten(on: req).flatMap { _ in
+                            return testResults.map { result in
+                                result.map { $0.save(on: req) }.flatten(on: req)
+                            }.flatMap { _ in
                                 // Skipping down to the catch map
                                 return req.future(error: SkipError.skip)
                             }
                         } else {
-                            return req.future(testResults)
+                            return testResults
                         }
                     }.flatMap { testResults -> Future<Response> in
                         guard build.pullRequests.count > 0 else { throw Abort(.notFound) }
