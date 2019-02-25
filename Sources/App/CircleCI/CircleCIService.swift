@@ -34,7 +34,7 @@ public struct CircleCIService: Service {
         step: String,
         on req: Request,
         retries: Int = 3
-    ) -> Future<(CircleCIBuildOutput, CircleCIPullRequest)> {
+    ) -> Future<(CircleCIBuildOutput, CircleCIBuild)> {
         guard retries != 0 else { return req.future(error: Abort(.internalServerError)) }
         let circle: CircleCIService
         
@@ -48,10 +48,10 @@ public struct CircleCIService: Service {
             number: buildNumber,
             repo: repo,
             on: req
-        ).flatMap { build -> Future<(CircleCIBuildOutput, CircleCIPullRequest)> in
-            let pullRequest = build.pullRequests[0]
-            return circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
-        }.catchFlatMap { (error) -> Future<(CircleCIBuildOutput, CircleCIPullRequest)> in
+        ).flatMap { build -> Future<(CircleCIBuildOutput, CircleCIBuild)> in
+            
+            return circle.getOutput(for: "swift test", from: build, on: req).map { ($0, build) }
+        }.catchFlatMap { (error) -> Future<(CircleCIBuildOutput, CircleCIBuild)> in
             if let error = error as? CircleCIService.CircleCIError, error == .noOutputURL {
                 sleep(1)
                 return self.getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
@@ -81,7 +81,12 @@ public struct CircleCIService: Service {
         }
     }
     
-    public func start(job: String, repo: String, branch: String, on req: Request) -> Future<String> {
+    public func start(
+        job: String,
+        repo: String,
+        branch: String,
+        on req: Request
+    ) -> Future<CircleCIRunJobResult> {
         let requestURL = "https://circleci.com/api/v1.1/project/github/\(repo)/tree/\(branch)?circle-token=\(self.authToken)"
         
         do {
@@ -90,10 +95,10 @@ public struct CircleCIService: Service {
             return client.post(requestURL, beforeSend: { request in
                 let body = CircleCIRunJobBody(buildParameters: job)
                 try request.content.encode(body)
-            }).map { response -> Response in
+            }).flatMap { response -> Future<CircleCIRunJobResult> in
                 print(response)
-                return response
-            }.transform(to: "hello")
+                return try response.content.decode(CircleCIRunJobResult.self)
+            }
         } catch {
             return req.future(error: error)
         }

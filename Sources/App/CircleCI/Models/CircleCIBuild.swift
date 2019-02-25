@@ -8,11 +8,24 @@ fileprivate struct BuildParameters: Content {
     }
 }
 
+extension DateFormatter {
+    static let iso8601Full: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ"
+        formatter.calendar = Calendar(identifier: .iso8601)
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter
+    }()
+}
+
 public struct CircleCIBuild: Content {
     private let buildParams: BuildParameters
     
     public let steps: [CircleCIBuildStep]
     public let pullRequests: [CircleCIPullRequest]
+    public let startTime: Date
+    public let repoName: String
     public var job: String {
         return self.buildParams.circleJob
     }
@@ -22,6 +35,31 @@ public struct CircleCIBuild: Content {
         case buildParams = "build_parameters"
         case steps
         case pullRequests = "pull_requests"
+        case startTime = "start_time"
+        case repoName = "reponame"
+        
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        self.buildParams = try container.decode(BuildParameters.self, forKey: .buildParams)
+        self.steps = try container.decode([CircleCIBuildStep].self, forKey: .steps)
+        self.pullRequests = try container.decode([CircleCIPullRequest].self, forKey: .pullRequests)
+        self.repoName = try container.decode(String.self, forKey: .repoName)
+        
+        let dateString = try container.decode(String.self, forKey: .startTime)
+        let formatter = DateFormatter.iso8601Full
+        
+        if let startTime = formatter.date(from: dateString) {
+            self.startTime = startTime
+        } else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .startTime,
+                in: container,
+                debugDescription: "Date string does not match format expected by formatter."
+            )
+        }
     }
     //{
     //    "compare" : null,
@@ -37,186 +75,186 @@ public struct CircleCIBuild: Content {
     //    "all_commit_details_truncated" : false,
     //    "committer_date" : "2019-02-20T21:00:10-08:00",
     //    "steps" : [ {
-    //    "name" : "Spin up Environment",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "Spin up Environment",
-    //    "bash_command" : null,
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:24.850Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/ad3b581000291b6d7603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-0-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=01c9c6f1a664935dab24b37375bc936f81d02683a7092d0f17a5059941832615",
-    //    "start_time" : "2019-02-21T05:00:23.688Z",
-    //    "background" : false,
-    //    "exit_code" : null,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 0,
-    //    "run_time_millis" : 1162,
-    //    "has_output" : true
-    //    } ]
-    //    }, {
-    //    "name" : "Checkout code",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "Checkout code",
-    //    "bash_command" : "#!/bin/sh\nset -e\n\n# Workaround old docker images with incorrect $HOME\n# check https://github.com/docker/docker/issues/2968 for details\nif [ \"${HOME}\" = \"/\" ]\nthen\n  export HOME=$(getent passwd $(id -un) | cut -d: -f6)\nfi\n\nmkdir -p ~/.ssh\n\necho 'github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==\nbitbucket.org ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==\n' >> ~/.ssh/known_hosts\n\n(umask 077; touch ~/.ssh/id_rsa)\nchmod 0600 ~/.ssh/id_rsa\n(cat <<EOF > ~/.ssh/id_rsa\n$CHECKOUT_KEY\nEOF\n)\n\n# use git+ssh instead of https\ngit config --global url.\"ssh://git@github.com\".insteadOf \"https://github.com\" || true\ngit config --global gc.auto 0 || true\n\nif [ -e /home/circleci/repo/.git ]\nthen\n  cd /home/circleci/repo\n  git remote set-url origin \"$CIRCLE_REPOSITORY_URL\" || true\nelse\n  mkdir -p /home/circleci/repo\n  cd /home/circleci/repo\n  git clone \"$CIRCLE_REPOSITORY_URL\" .\nfi\n\nif [ -n \"$CIRCLE_TAG\" ]\nthen\n  git fetch --force origin \"refs/tags/${CIRCLE_TAG}\"\nelse\n  git fetch --force origin \"twof-patch-1:remotes/origin/twof-patch-1\"\nfi\n\n\nif [ -n \"$CIRCLE_TAG\" ]\nthen\n  git reset --hard \"$CIRCLE_SHA1\"\n  git checkout -q \"$CIRCLE_TAG\"\nelif [ -n \"$CIRCLE_BRANCH\" ]\nthen\n  git reset --hard \"$CIRCLE_SHA1\"\n  git checkout -q -B \"$CIRCLE_BRANCH\"\nfi\n\ngit reset --hard \"$CIRCLE_SHA1\"",
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:25.727Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/0e3b581000291b6d8603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-101-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=16b90aabd4bf4f88ae57134a17e451b05fcf23c724f650eff0e245516d8ef7ff",
-    //    "start_time" : "2019-02-21T05:00:24.907Z",
-    //    "background" : false,
-    //    "exit_code" : 0,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 101,
-    //    "run_time_millis" : 820,
-    //    "has_output" : true
-    //    } ]
-    //    }, {
-    //    "name" : "Restoring Cache",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "Restoring Cache",
-    //    "bash_command" : null,
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:26.716Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/1e3b581000291b6d9603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-102-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=bce3a4b4bee2820a68a4df18cb0ea0d997001efbb2325d8149a7903ff1f7989a",
-    //    "start_time" : "2019-02-21T05:00:25.732Z",
-    //    "background" : false,
-    //    "exit_code" : null,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 102,
-    //    "run_time_millis" : 984,
-    //    "has_output" : true
-    //    } ]
-    //    }, {
-    //    "name" : "install dependencies",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "install dependencies",
-    //    "bash_command" : "#!/bin/bash -eo pipefail\npython3 -m venv venv\n. venv/bin/activate\npip install -r requirements.txt\n",
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:28.645Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/4e3b581000291b6da603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-103-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=e376ff966653e71b16157cd6a8635259a58f52d7ee89f890e4dafa105da52d1c",
-    //    "start_time" : "2019-02-21T05:00:26.721Z",
-    //    "background" : false,
-    //    "exit_code" : 0,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 103,
-    //    "run_time_millis" : 1924,
-    //    "has_output" : true
-    //    } ]
-    //    }, {
-    //    "name" : "Saving Cache",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "Saving Cache",
-    //    "bash_command" : null,
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:28.665Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/9e3b581000291b6dc603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-104-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=1490dd6d87f54935abce912ac1c370676d343d40f77300f6c3af0909e9d2330e",
-    //    "start_time" : "2019-02-21T05:00:28.649Z",
-    //    "background" : false,
-    //    "exit_code" : null,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 104,
-    //    "run_time_millis" : 16,
-    //    "has_output" : true
-    //    } ]
-    //    }, {
-    //    "name" : "run tests",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "run tests",
-    //    "bash_command" : "#!/bin/bash -eo pipefail\n. venv/bin/activate\npython manage.py test\n",
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:29.297Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "start_time" : "2019-02-21T05:00:28.669Z",
-    //    "background" : false,
-    //    "exit_code" : 0,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 105,
-    //    "run_time_millis" : 628,
-    //    "has_output" : false
-    //    } ]
-    //    }, {
-    //    "name" : "Uploading artifacts",
-    //    "actions" : [ {
-    //    "truncated" : false,
-    //    "index" : 0,
-    //    "parallel" : true,
-    //    "failed" : null,
-    //    "infrastructure_fail" : null,
-    //    "name" : "Uploading artifacts",
-    //    "bash_command" : null,
-    //    "status" : "success",
-    //    "timedout" : null,
-    //    "continue" : null,
-    //    "end_time" : "2019-02-21T05:00:29.318Z",
-    //    "type" : "test",
-    //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
-    //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/fe3b581000291b6dd603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-106-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=619081678229a69fb4f67f372030ffa21f7071a445e40b18d104f29072c4ef22",
-    //    "start_time" : "2019-02-21T05:00:29.305Z",
-    //    "background" : false,
-    //    "exit_code" : null,
-    //    "insignificant" : false,
-    //    "canceled" : null,
-    //    "step" : 106,
-    //    "run_time_millis" : 13,
-    //    "has_output" : true
-    //    } ]
+        //    "name" : "Spin up Environment",
+        //    "actions" : [ {
+            //    "truncated" : false,
+            //    "index" : 0,
+            //    "parallel" : true,
+            //    "failed" : null,
+            //    "infrastructure_fail" : null,
+            //    "name" : "Spin up Environment",
+            //    "bash_command" : null,
+            //    "status" : "success",
+            //    "timedout" : null,
+            //    "continue" : null,
+            //    "end_time" : "2019-02-21T05:00:24.850Z",
+            //    "type" : "test",
+            //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+            //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/ad3b581000291b6d7603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-0-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=01c9c6f1a664935dab24b37375bc936f81d02683a7092d0f17a5059941832615",
+            //    "start_time" : "2019-02-21T05:00:23.688Z",
+            //    "background" : false,
+            //    "exit_code" : null,
+            //    "insignificant" : false,
+            //    "canceled" : null,
+            //    "step" : 0,
+            //    "run_time_millis" : 1162,
+            //    "has_output" : true
+        //    } ]
+        //    }, {
+            //    "name" : "Checkout code",
+            //    "actions" : [ {
+                //    "truncated" : false,
+                //    "index" : 0,
+                //    "parallel" : true,
+                //    "failed" : null,
+                //    "infrastructure_fail" : null,
+                //    "name" : "Checkout code",
+                //    "bash_command" : "#!/bin/sh\nset -e\n\n# Workaround old docker images with incorrect $HOME\n# check https://github.com/docker/docker/issues/2968 for details\nif [ \"${HOME}\" = \"/\" ]\nthen\n  export HOME=$(getent passwd $(id -un) | cut -d: -f6)\nfi\n\nmkdir -p ~/.ssh\n\necho 'github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ==\nbitbucket.org ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAubiN81eDcafrgMeLzaFPsw2kNvEcqTKl/VqLat/MaB33pZy0y3rJZtnqwR2qOOvbwKZYKiEO1O6VqNEBxKvJJelCq0dTXWT5pbO2gDXC6h6QDXCaHo6pOHGPUy+YBaGQRGuSusMEASYiWunYN0vCAI8QaXnWMXNMdFP3jHAJH0eDsoiGnLPBlBp4TNm6rYI74nMzgz3B9IikW4WVK+dc8KZJZWYjAuORU3jc1c/NPskD2ASinf8v3xnfXeukU0sJ5N6m5E8VLjObPEO+mN2t/FZTMZLiFqPWc/ALSqnMnnhwrNi2rbfg/rd/IpL8Le3pSBne8+seeFVBoGqzHM9yXw==\n' >> ~/.ssh/known_hosts\n\n(umask 077; touch ~/.ssh/id_rsa)\nchmod 0600 ~/.ssh/id_rsa\n(cat <<EOF > ~/.ssh/id_rsa\n$CHECKOUT_KEY\nEOF\n)\n\n# use git+ssh instead of https\ngit config --global url.\"ssh://git@github.com\".insteadOf \"https://github.com\" || true\ngit config --global gc.auto 0 || true\n\nif [ -e /home/circleci/repo/.git ]\nthen\n  cd /home/circleci/repo\n  git remote set-url origin \"$CIRCLE_REPOSITORY_URL\" || true\nelse\n  mkdir -p /home/circleci/repo\n  cd /home/circleci/repo\n  git clone \"$CIRCLE_REPOSITORY_URL\" .\nfi\n\nif [ -n \"$CIRCLE_TAG\" ]\nthen\n  git fetch --force origin \"refs/tags/${CIRCLE_TAG}\"\nelse\n  git fetch --force origin \"twof-patch-1:remotes/origin/twof-patch-1\"\nfi\n\n\nif [ -n \"$CIRCLE_TAG\" ]\nthen\n  git reset --hard \"$CIRCLE_SHA1\"\n  git checkout -q \"$CIRCLE_TAG\"\nelif [ -n \"$CIRCLE_BRANCH\" ]\nthen\n  git reset --hard \"$CIRCLE_SHA1\"\n  git checkout -q -B \"$CIRCLE_BRANCH\"\nfi\n\ngit reset --hard \"$CIRCLE_SHA1\"",
+                //    "status" : "success",
+                //    "timedout" : null,
+                //    "continue" : null,
+                //    "end_time" : "2019-02-21T05:00:25.727Z",
+                //    "type" : "test",
+                //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+                //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/0e3b581000291b6d8603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-101-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=16b90aabd4bf4f88ae57134a17e451b05fcf23c724f650eff0e245516d8ef7ff",
+                //    "start_time" : "2019-02-21T05:00:24.907Z",
+                //    "background" : false,
+                //    "exit_code" : 0,
+                //    "insignificant" : false,
+                //    "canceled" : null,
+                //    "step" : 101,
+                //    "run_time_millis" : 820,
+                //    "has_output" : true
+            //    } ]
+        //    }, {
+            //    "name" : "Restoring Cache",
+            //    "actions" : [ {
+                //    "truncated" : false,
+                //    "index" : 0,
+                //    "parallel" : true,
+                //    "failed" : null,
+                //    "infrastructure_fail" : null,
+                //    "name" : "Restoring Cache",
+                //    "bash_command" : null,
+                //    "status" : "success",
+                //    "timedout" : null,
+                //    "continue" : null,
+                //    "end_time" : "2019-02-21T05:00:26.716Z",
+                //    "type" : "test",
+                //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+                //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/1e3b581000291b6d9603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-102-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=bce3a4b4bee2820a68a4df18cb0ea0d997001efbb2325d8149a7903ff1f7989a",
+                //    "start_time" : "2019-02-21T05:00:25.732Z",
+                //    "background" : false,
+                //    "exit_code" : null,
+                //    "insignificant" : false,
+                //    "canceled" : null,
+                //    "step" : 102,
+                //    "run_time_millis" : 984,
+                //    "has_output" : true
+            //    } ]
+        //    }, {
+            //    "name" : "install dependencies",
+            //    "actions" : [ {
+                //    "truncated" : false,
+                //    "index" : 0,
+                //    "parallel" : true,
+                //    "failed" : null,
+                //    "infrastructure_fail" : null,
+                //    "name" : "install dependencies",
+                //    "bash_command" : "#!/bin/bash -eo pipefail\npython3 -m venv venv\n. venv/bin/activate\npip install -r requirements.txt\n",
+                //    "status" : "success",
+                //    "timedout" : null,
+                //    "continue" : null,
+                //    "end_time" : "2019-02-21T05:00:28.645Z",
+                //    "type" : "test",
+                //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+                //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/4e3b581000291b6da603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-103-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=e376ff966653e71b16157cd6a8635259a58f52d7ee89f890e4dafa105da52d1c",
+                //    "start_time" : "2019-02-21T05:00:26.721Z",
+                //    "background" : false,
+                //    "exit_code" : 0,
+                //    "insignificant" : false,
+                //    "canceled" : null,
+                //    "step" : 103,
+                //    "run_time_millis" : 1924,
+                //    "has_output" : true
+            //    } ]
+        //    }, {
+            //    "name" : "Saving Cache",
+            //    "actions" : [ {
+            //    "truncated" : false,
+            //    "index" : 0,
+            //    "parallel" : true,
+            //    "failed" : null,
+            //    "infrastructure_fail" : null,
+            //    "name" : "Saving Cache",
+            //    "bash_command" : null,
+            //    "status" : "success",
+            //    "timedout" : null,
+            //    "continue" : null,
+            //    "end_time" : "2019-02-21T05:00:28.665Z",
+            //    "type" : "test",
+            //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+            //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/9e3b581000291b6dc603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-104-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=1490dd6d87f54935abce912ac1c370676d343d40f77300f6c3af0909e9d2330e",
+            //    "start_time" : "2019-02-21T05:00:28.649Z",
+            //    "background" : false,
+            //    "exit_code" : null,
+            //    "insignificant" : false,
+            //    "canceled" : null,
+            //    "step" : 104,
+            //    "run_time_millis" : 16,
+            //    "has_output" : true
+            //    } ]
+            //    }, {
+            //    "name" : "run tests",
+            //    "actions" : [ {
+                //    "truncated" : false,
+                //    "index" : 0,
+                //    "parallel" : true,
+                //    "failed" : null,
+                //    "infrastructure_fail" : null,
+                //    "name" : "run tests",
+                //    "bash_command" : "#!/bin/bash -eo pipefail\n. venv/bin/activate\npython manage.py test\n",
+                //    "status" : "success",
+                //    "timedout" : null,
+                //    "continue" : null,
+                //    "end_time" : "2019-02-21T05:00:29.297Z",
+                //    "type" : "test",
+                //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+                //    "start_time" : "2019-02-21T05:00:28.669Z",
+                //    "background" : false,
+                //    "exit_code" : 0,
+                //    "insignificant" : false,
+                //    "canceled" : null,
+                //    "step" : 105,
+                //    "run_time_millis" : 628,
+                //    "has_output" : false
+            //    } ]
+        //    }, {
+            //    "name" : "Uploading artifacts",
+            //    "actions" : [ {
+                //    "truncated" : false,
+                //    "index" : 0,
+                //    "parallel" : true,
+                //    "failed" : null,
+                //    "infrastructure_fail" : null,
+                //    "name" : "Uploading artifacts",
+                //    "bash_command" : null,
+                //    "status" : "success",
+                //    "timedout" : null,
+                //    "continue" : null,
+                //    "end_time" : "2019-02-21T05:00:29.318Z",
+                //    "type" : "test",
+                //    "allocation_id" : "5c6e3066ef85e30008129e7b-0-build/6A2BBF41",
+                //    "output_url" : "https://circle-production-action-output.s3.amazonaws.com/fe3b581000291b6dd603e6c5-9d696e9c-958f-40a3-9ce4-b75c5a7b1768-106-0?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20190221T050149Z&X-Amz-SignedHeaders=host&X-Amz-Expires=431999&X-Amz-Credential=AKIAIJNI6FA5RIAFFQ7Q%2F20190221%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=619081678229a69fb4f67f372030ffa21f7071a445e40b18d104f29072c4ef22",
+                //    "start_time" : "2019-02-21T05:00:29.305Z",
+                //    "background" : false,
+                //    "exit_code" : null,
+                //    "insignificant" : false,
+                //    "canceled" : null,
+                //    "step" : 106,
+                //    "run_time_millis" : 13,
+                //    "has_output" : true
+        //    } ]
     //    } ],
     //    "body" : "",
     //    "usage_queued_at" : "2019-02-21T05:00:22.612Z",

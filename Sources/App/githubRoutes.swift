@@ -21,7 +21,7 @@ public func githubRoutes(router: GithubCommandRouter) throws {
                 ).transform(to: .ok)
             }
             
-            return try req.client().get(pullRequest.url).flatMap { response -> Future<String> in
+            return try req.client().get(pullRequest.url).flatMap { response -> Future<CircleCIRunJobResult> in
                 let pullRequestHead = try response.content.syncDecode(GithubPullRequest.self).head
                 let branchName = pullRequestHead.name
                 

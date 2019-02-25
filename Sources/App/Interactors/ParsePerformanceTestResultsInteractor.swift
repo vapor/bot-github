@@ -5,7 +5,7 @@ public struct ParsePerformanceTestResultsInteractor {
         case missingTestCases
     }
     
-    public func execute(output: String) throws -> [PerformanceTestResults] {
+    public func execute(output: String, date: Date, repoName: String) throws -> [PerformanceTestResults] {
         let replaced = output.replacingOccurrences(of: "[PERFORMANCE]", with: "🔤")
         let split = replaced.split(separator: "🔤")
         let filterNonPerformance = split.filter { $0.contains("performance") }
@@ -23,7 +23,16 @@ public struct ParsePerformanceTestResultsInteractor {
             )
         }
         
-        let codableResults = testResults.map { PerformanceTestResults(name: $0.name, expected: $0.expected, average: $0.average, change: $0.change) }
+        let codableResults = testResults.map { result in
+            PerformanceTestResults(
+                date: date,
+                repoName: repoName,
+                name: result.name,
+                expected: result.expected,
+                average: result.average,
+                change: result.change
+            )
+        }
         
         return codableResults
     }

@@ -201,11 +201,13 @@ struct GithubWebhook: Content {
     let comment: GithubComment?
     let repository: GithubRepository
     let issue: GithubIssue
+    let action: String
     
     
     enum CodingKeys: String, CodingKey {
         case comment
         case repository
         case issue
+        case action
     }
 }
