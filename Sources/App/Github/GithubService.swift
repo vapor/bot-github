@@ -26,19 +26,6 @@ public struct GithubService: Service {
         }
     }
     
-    public enum PermissionLevel: String, Codable {
-        case read
-        case write
-        case admin
-    }
-    public struct GithubPermissionLevel: Content {
-        public let level: PermissionLevel
-        
-        enum CodingKeys: String, CodingKey {
-            case level = "permission"
-        }
-    }
-    
     public func getPermissionLevel(username: String, repo: String, on req: Request) -> Future<GithubPermissionLevel> {
         let requestURL = "https://api.github.com/repos/\(repo)/collaborators/\(username)/permission?access_token=\(self.accessToken)"
  

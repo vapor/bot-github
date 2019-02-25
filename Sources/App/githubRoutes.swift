@@ -1,7 +1,10 @@
 import Vapor
 
 public func githubRoutes(router: GithubCommandRouter) throws {
-    router.register(command: "@vapor-bot", "test performance") { (req) -> Future<HTTPStatus> in
+    let permissionChecked = router.grouped(PermissionCheckMiddleware(target: .write))
+    let tagged = permissionChecked.grouped("@vapor-bot")
+    
+    tagged.register(command: "test performance") { (req) -> Future<HTTPStatus> in
         return try req.content.decode(GithubWebhook.self).flatMap { webhook -> Future<(GithubComment, GithubRepository, GithubIssue, GithubShortFormPullRequest)> in
             guard let comment = webhook.comment, comment.user.login != "vapor-bot" else {
                 return req.future(error: Abort(.ok))
@@ -21,16 +24,6 @@ public func githubRoutes(router: GithubCommandRouter) throws {
             }
             
             return req.future((comment, repo, issue, pullRequest))
-        }.flatMap { (comment, repo, issue, pullRequest) -> Future<(GithubComment, GithubRepository, GithubIssue, GithubShortFormPullRequest)> in
-            let github = try req.make(GithubService.self)
-            
-            return github.getPermissionLevel(username: comment.user.login, repo: repo.fullName, on: req)
-                .flatMap { permissions in
-                    guard permissions.level == .admin || permissions.level == .write else {
-                        return req.future(error: Abort(.unauthorized))
-                    }
-                    return req.future((comment, repo, issue, pullRequest))
-                }
         }.flatMap { (comment, repo, issue, pullRequest) in
             let github = try req.make(GithubService.self)
             let circle = try req.make(CircleCIService.self)
@@ -51,7 +44,7 @@ public func githubRoutes(router: GithubCommandRouter) throws {
         }
     }
     
-    router.register(command: "@vapor-bot") { req -> Future<HTTPStatus> in
+    tagged.register() { req -> Future<HTTPStatus> in
         return try req.content.decode(GithubWebhook.self).flatMap { webhook in
             guard let comment = webhook.comment, comment.user.login != "vapor-bot" else {
                 return req.future(.ok)

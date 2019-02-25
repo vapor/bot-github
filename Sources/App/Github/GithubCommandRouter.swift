@@ -9,6 +9,8 @@ public class GithubCommandRouter {
         return router.routes
     }
     
+    public var middleware: [Middleware]
+    
     public init() {
         self.router = .init()
     }
@@ -30,6 +32,10 @@ extension GithubCommandRouter {
         command: String...,
         closure: @escaping (Request) throws -> T
     ) {
+        guard command.count > 0 else {
+            return
+        }
+        
         let pathComponents = command.map { component in
             component.split(separator: " ").map {
                 PathComponent.constant(String($0))
@@ -37,6 +43,15 @@ extension GithubCommandRouter {
         }.flatMap { $0 }
         let responder = BasicResponder { try closure($0).encode(for: $0) }
         let route = Route<Responder>.init(path: pathComponents, output: responder)
+        
         self.register(route: route)
     }
+}
+
+
+// Middleware
+extension GithubCommandRouter {
+//    public func grouped(_ middleware: Middleware...) -> GithubCommandRouter {
+//        
+//    }
 }
