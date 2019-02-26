@@ -75,20 +75,20 @@ notify:
 On Github, you'll have to set up a couple webhooks. You can find webhook setup by navigating to the settings
 page for your repo, and then selecting the webhooks tab on the left.
 
-1. Payload URL: https://bot-gh.vapor.codes/comment
-Check "Let me select individual events"
-Uncheck "Pushes"
-Check "Issue comments"
-Hit Save
-This is the webhook that will be reporting new comments to the bot and will help it listen for commands
+1. Payload URL: https://bot-gh.vapor.codes/comment  
+Check "Let me select individual events"  
+Uncheck "Pushes"  
+Check "Issue comments"  
+Hit Save  
+This is the webhook that will be reporting new comments to the bot and will help it listen for commands  
 
-2. Payload URL: https://bot-gh.vapor.codes/pullRequestActivity
-Check "Let me select individual events"
-Uncheck "Pushes"
-Check "Pull requests"
-Hit Save
-This is the webhook that will be reporting merges to the bot which will help it track the master branch's 
-performance over time
+2. Payload URL: https://bot-gh.vapor.codes/pullRequestActivity  
+Check "Let me select individual events"  
+Uncheck "Pushes"  
+Check "Pull requests"  
+Hit Save  
+This is the webhook that will be reporting merges to the bot which will help it track the master branch's   
+performance over time  
 
 
 
