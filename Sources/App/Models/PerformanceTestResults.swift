@@ -32,6 +32,7 @@ public struct PerformanceTestResults: Content {
 
 extension PerformanceTestResults: SQLiteModel { }
 
+
 extension PerformanceTestResults: Rowable {
     public func fields() -> [String] {
         return [name, String(expected), String(average), change]

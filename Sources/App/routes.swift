@@ -21,7 +21,7 @@ public func routes(_ router: Router) throws {
         else {
             return try HTTPStatus.ok.encode(for: req)
         }
-        
+    
         let circle = try req.make(CircleCIService.self)
         
         return circle.start(

@@ -7,17 +7,26 @@ public struct ParsePerformanceTestResultsInteractor {
         case missingTestCases
     }
     
+    
     public func execute(output: String, date: Date, repoName: String, on req: Request) throws -> Future<[PerformanceTestResults]> {
-        // TODO: Remove reliance on [PERFORMANCE]
-        let replaced = output.replacingOccurrences(of: "[PERFORMANCE]", with: "🔤")
-        let split = replaced.split(separator: "🔤")
-        let filterNonPerformance = split.filter { $0.contains("performance") }
+        let doubleChars = [(UInt32("0")...UInt32("9")), (UInt32(".")...UInt32("."))]
+            .joined()
+            .map { Character(UnicodeScalar($0)!) }
         
-        guard filterNonPerformance.count >= 3 else { throw OutputParsingError.missingTestCases }
+        let split = output.split(separator: "\r\n")
+        let filterNonPerformance = split.filter { $0.contains("measured [Time") }
+        let results = filterNonPerformance
+            .map { $0.split(separator: " ")[8] }
+            .map { str in str.filter { doubleChars.contains($0) } }
+            .map { Double($0)! }
+        let names = filterNonPerformance
+            .map { $0.split(separator: " ")[3].split(separator: ".")[1] }
+            .map { funcName in funcName.filter { ("A"..."z").contains($0) } }
+            .map { String($0) }
         
-        let testResults = filterNonPerformance.map { (test: String.SubSequence) -> Future<(name: String, expected: Double, average: Double, change: String)> in
-//            let expected = Double(matches(for: "expected: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
-            let name = String(matches(for: ".*\\(\\)", in: String(test))[0].split(separator: "(")[0])
+        let partialTestResults = zip(names, results)
+        
+        let testResults = partialTestResults.map { (name, average) -> Future<(name: String, expected: Double, average: Double, change: String)> in
             
             return PerformanceTestResults
                 .query(on: req)
@@ -29,7 +38,6 @@ public struct ParsePerformanceTestResultsInteractor {
                 // and provide some default baseline
                 .unwrap(or: Abort(.notFound))
                 .map { result in
-                    let average = Double(self.matches(for: "average: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
                     let expected = result.average
                     
                     return (
@@ -56,19 +64,4 @@ public struct ParsePerformanceTestResultsInteractor {
             }
         }
     }
-    
-    private func matches(for regex: String, in text: String) -> [String] {
-        do {
-            let regex = try NSRegularExpression(pattern: regex)
-            let results = regex.matches(in: text,
-                                        range: NSRange(text.startIndex..., in: text))
-            return results.map {
-                String(text[Range($0.range, in: text)!])
-            }
-        } catch let error {
-            print("invalid regex: \(error.localizedDescription)")
-            return []
-        }
-    }
-    
 }

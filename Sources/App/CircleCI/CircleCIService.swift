@@ -18,7 +18,6 @@ public struct CircleCIService: Service {
             let client = try req.client()
             
             return client.get(requestURL).flatMap { response in
-                print("BUILD_RESPONSE:", response)
                 response.http.headers.replaceOrAdd(name: .contentType, value: "application/json")
                 let build = try response.content.decode(CircleCIBuild.self)
                 return build
@@ -61,7 +60,6 @@ public struct CircleCIService: Service {
     }
     
     fileprivate func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) -> Future<CircleCIBuildOutput> {
-        print("BUILD_OBJECT:", build)
         guard let step = (build.steps.first { $0.name == buildStep }) else {
             return req.future(error: Abort(.notFound))
         }
@@ -95,10 +93,7 @@ public struct CircleCIService: Service {
             return client.post(requestURL, beforeSend: { request in
                 let body = CircleCIRunJobBody(buildParameters: job)
                 try request.content.encode(body)
-            }).flatMap { response -> Future<CircleCIRunJobResult> in
-                print(response)
-                return try response.content.decode(CircleCIRunJobResult.self)
-            }
+            }).flatMap { try $0.content.decode(CircleCIRunJobResult.self) }
         } catch {
             return req.future(error: error)
         }
