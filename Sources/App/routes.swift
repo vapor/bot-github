@@ -18,8 +18,7 @@ public func routes(_ router: Router) throws {
             comment.user.login != "vapor-bot"
             else { return try HTTPStatus.ok.encode(for: req) }
         
-        let githubRouter = GithubCommandRouter()
-        try githubRoutes(router: githubRouter)
+        let githubRouter = try req.make(GithubCommandRouter.self)
         
         guard let responder = githubRouter.route(command: comment.body, on: req) else {
             return try HTTPStatus.notFound.encode(for: req)

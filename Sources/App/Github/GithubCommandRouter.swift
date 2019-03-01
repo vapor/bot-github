@@ -1,7 +1,7 @@
 import Vapor
 
 // Basic router implementation
-public class GithubCommandRouter {
+public class GithubCommandRouter: Service {
     /// The internal router
     private let router: TrieRouter<Responder>
     

@@ -20,6 +20,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     guard let circleCIAuthToken = Environment.get("CIRCLECI_AUTH_TOKEN") else { fatalError() }
     let circleCIService = CircleCIService(authToken: circleCIAuthToken)
     services.register(circleCIService)
+    
+    // Github command router
+    let githubRouter = GithubCommandRouter()
+    try githubRoutes(router: githubRouter)
+    services.register(githubRouter)
 
     // Register middleware
     var middlewares = MiddlewareConfig() // Create _empty_ middleware config
@@ -36,6 +41,6 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     services.register(databases)
 
     // Configure migrations
-    var migrations = MigrationConfig()
+    let migrations = MigrationConfig()
     services.register(migrations)
 }
