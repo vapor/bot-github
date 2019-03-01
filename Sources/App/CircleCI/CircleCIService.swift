@@ -1,17 +1,5 @@
 import Vapor
 
-public struct CircleCIRunJobBody: Content {
-    public static var defaultContentType: MediaType {
-        return .urlEncodedForm
-    }
-    
-    let buildParameters: String
-    
-    enum CodingKeys: String, CodingKey {
-        case buildParameters = "build_parameters[CIRCLE_JOB]"
-    }
-}
-
 public struct CircleCIService: Service {
     public enum CircleCIError: Error {
         case noOutputURL
@@ -30,7 +18,6 @@ public struct CircleCIService: Service {
             let client = try req.client()
             
             return client.get(requestURL).flatMap { response in
-                print("BUILD_RESPONSE:", response)
                 response.http.headers.replaceOrAdd(name: .contentType, value: "application/json")
                 let build = try response.content.decode(CircleCIBuild.self)
                 return build
@@ -40,8 +27,39 @@ public struct CircleCIService: Service {
         }
     }
     
-    public func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) -> Future<CircleCIBuildOutput> {
-        print("BUILD_OBJECT:", build)
+    func getOutput(
+        for buildNumber: Int,
+        repo: String,
+        step: String,
+        on req: Request,
+        retries: Int = 3
+    ) -> Future<(CircleCIBuildOutput, CircleCIPullRequest)> {
+        guard retries != 0 else { return req.future(error: Abort(.internalServerError)) }
+        let circle: CircleCIService
+        
+        do {
+            circle = try req.make(CircleCIService.self)
+        } catch {
+            return req.future(error: error)
+        }
+        
+        return circle.getBuild(
+            number: buildNumber,
+            repo: repo,
+            on: req
+        ).flatMap { build -> Future<(CircleCIBuildOutput, CircleCIPullRequest)> in
+            let pullRequest = build.pullRequests[0]
+            return circle.getOutput(for: "swift test", from: build, on: req).map { ($0, pullRequest) }
+        }.catchFlatMap { (error) -> Future<(CircleCIBuildOutput, CircleCIPullRequest)> in
+            if let error = error as? CircleCIService.CircleCIError, error == .noOutputURL {
+                sleep(1)
+                return self.getOutput(for: buildNumber, repo: repo, step: step, on: req, retries: retries - 1)
+            }
+            throw error
+        }
+    }
+    
+    fileprivate func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) -> Future<CircleCIBuildOutput> {
         guard let step = (build.steps.first { $0.name == buildStep }) else {
             return req.future(error: Abort(.notFound))
         }
@@ -70,13 +88,9 @@ public struct CircleCIService: Service {
             return client.post(requestURL, beforeSend: { request in
                 let body = CircleCIRunJobBody(buildParameters: job)
                 try request.content.encode(body)
-            }).map { response -> Response in
-                print(response)
-                return response
-            }.transform(to: "hello")
+            }).transform(to: "hello")
         } catch {
             return req.future(error: error)
         }
     }
-    
 }

@@ -1,13 +1,5 @@
 import Vapor
 
-public struct CircleCIBuildStepAction: Content {
-    public let outputURL: URL?
-    
-    enum CodingKeys: String, CodingKey {
-        case outputURL = "output_url"
-    }
-}
-
 public struct CircleCIBuildStep: Content {
     public let name: String
     public let actions: [CircleCIBuildStepAction]

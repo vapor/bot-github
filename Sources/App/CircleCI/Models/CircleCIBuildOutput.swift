@@ -1,6 +1,5 @@
 import Vapor
 
-
 // Comes in as an arrray
 public struct CircleCIBuildOutput: Content {
     public let message: String
@@ -11,5 +10,4 @@ public struct CircleCIBuildOutput: Content {
     //        "type": "out"
     //    }
     //]
-
 }
