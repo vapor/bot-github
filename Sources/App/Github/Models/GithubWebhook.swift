@@ -197,10 +197,10 @@ import Vapor
 //    }
 //}
 
-struct GithubWebhook: Content {
-    let comment: GithubComment?
-    let repository: GithubRepository
-    let issue: GithubIssue
+public struct GithubWebhook: Content {
+    public let comment: GithubComment?
+    public let repository: GithubRepository
+    public let issue: GithubIssue
     
     
     enum CodingKeys: String, CodingKey {

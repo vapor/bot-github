@@ -26,16 +26,21 @@ public class GithubCommandRouter {
 
 // Convenience functions
 extension GithubCommandRouter {
-    public func register<T: ResponseEncodable>(
-        command: String...,
-        closure: @escaping (Request) throws -> T
+    public func command<T: ResponseEncodable>(
+        _ command: String...,
+        closure: @escaping (Request, GithubWebhook) throws -> T
     ) {
         let pathComponents = command.map { component in
             component.split(separator: " ").map {
                 PathComponent.constant(String($0))
             }
         }.flatMap { $0 }
-        let responder = BasicResponder { try closure($0).encode(for: $0) }
+        let responder = BasicResponder { request in
+            try request.content.decode(GithubWebhook.self).flatMap { webhook in
+                try closure(request, webhook).encode(for: request)
+            }
+            
+        }
         let route = Route<Responder>.init(path: pathComponents, output: responder)
         self.register(route: route)
     }
