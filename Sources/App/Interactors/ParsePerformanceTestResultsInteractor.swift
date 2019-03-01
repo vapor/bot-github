@@ -6,17 +6,18 @@ public struct ParsePerformanceTestResultsInteractor {
     }
     
     public func execute(output: String) throws -> [PerformanceTestResults] {
-        let replaced = output.replacingOccurrences(of: "[PERFORMANCE]", with: "🔤")
-        let split = replaced.split(separator: "🔤")
-        let filterNonPerformance = split.filter { $0.contains("performance") }
+        let split = output.split(separator: "\r\n")
+        let filterNonExpected = split.filter { $0.contains("[PERFORMANCE] test") }
+        let filterNonPerformance = split.filter { $0.contains("measured [Time") }
+        let expectedResults = filterNonExpected.map { $0.split(separator: " ")[3] }.map { Double($0)! }
+        let results = filterNonPerformance.map { $0.split(separator: " ")[8] }.map { Double($0)! }
+        let names = filterNonExpected.map { $0.split(separator: " ")[1] }.map { funcName in funcName.filter { ("A"..."z").contains($0) } }.map { String($0) }
         
-        guard filterNonPerformance.count >= 3 else { throw OutputParsingError.missingTestCases }
-        
-        let testResults = filterNonPerformance.map { (test: String.SubSequence) -> (name: String, expected: Double, average: Double, change: String) in
-            let expected = Double(matches(for: "expected: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
-            let average = Double(matches(for: "average: [0-9\\.]*", in: String(test))[0].split(separator: " ")[1])!
+        let testResults = zip(names, zip(results, expectedResults)).map { name, stats -> (name: String, expected: Double, average: Double, change: String) in
+            let (average, expected) = stats
+            
             return (
-                name: String(matches(for: ".*\\(\\)", in: String(test))[0].split(separator: "(")[0]),
+                name: name,
                 expected: expected,
                 average: average,
                 change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
@@ -27,19 +28,4 @@ public struct ParsePerformanceTestResultsInteractor {
         
         return codableResults
     }
-    
-    private func matches(for regex: String, in text: String) -> [String] {
-        do {
-            let regex = try NSRegularExpression(pattern: regex)
-            let results = regex.matches(in: text,
-                                        range: NSRange(text.startIndex..., in: text))
-            return results.map {
-                String(text[Range($0.range, in: text)!])
-            }
-        } catch let error {
-            print("invalid regex: \(error.localizedDescription)")
-            return []
-        }
-    }
-    
 }
