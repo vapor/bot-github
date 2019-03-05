@@ -95,7 +95,6 @@ public func routes(_ router: Router) throws {
                             return testResults.flatMap { result in
                                 return result.map { $0.create(on: req) }.flatten(on: req)
                             }.flatMap { results in
-                                print(results)
                                 // Skipping down to the catch map
                                 return req.future(error: SkipError.skip)
                             }
