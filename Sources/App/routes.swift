@@ -12,12 +12,11 @@ public func routes(_ router: Router) throws {
         return "Hello, world!"
     }
     
-    router.post(GithubWebhook.self, at: "pullRequestActivity") { (req, webhook) -> Future<Response> in
+    router.post(GithubPullRequestWebhook.self, at: "pullRequestActivity") { (req, webhook) -> Future<Response> in
         // This route will only be responding to merges
         guard
             webhook.action == "closed",
-            let isMerged = webhook.issue.pullRequest?.merged,
-            isMerged == true
+            webhook.pullRequest.merged == true
         else {
             return try HTTPStatus.ok.encode(for: req)
         }
@@ -34,14 +33,13 @@ public func routes(_ router: Router) throws {
         }.transform(to: try HTTPStatus.ok.encode(for: req))
     }
    
-    router.post(GithubWebhook.self, at: "comment") { (req, webhook) -> Future<Response> in
+    router.post(GithubCommentWebhook.self, at: "comment") { (req, webhook) -> Future<Response> in
         guard
             let comment = webhook.comment,
             comment.user.login != "vapor-bot"
             else { return try HTTPStatus.ok.encode(for: req) }
         
-        let githubRouter = GithubCommandRouter()
-        try githubRoutes(router: githubRouter)
+        let githubRouter = try req.make(GithubCommandRouter.self)
         
         guard let responder = githubRouter.route(command: comment.body, on: req) else {
             return try HTTPStatus.notFound.encode(for: req)
@@ -92,10 +90,12 @@ public func routes(_ router: Router) throws {
                             return req.future(error: ParsingError.parsingFailed)
                         }
 
+                        // if this test is the result of a merge
                         if maybeTracked != nil {
-                            return testResults.map { result in
-                                result.map { $0.save(on: req) }.flatten(on: req)
-                            }.flatMap { _ in
+                            return testResults.flatMap { result in
+                                return result.map { $0.create(on: req) }.flatten(on: req)
+                            }.flatMap { results in
+                                print(results)
                                 // Skipping down to the catch map
                                 return req.future(error: SkipError.skip)
                             }
@@ -152,5 +152,9 @@ public func routes(_ router: Router) throws {
                         return req.future(error: error)
                     }.transform(to: .ok)
             }
+    }
+    
+    router.get("perf") { (req) -> Future<[PerformanceTestResults]> in
+        return PerformanceTestResults.query(on: req).all()
     }
 }

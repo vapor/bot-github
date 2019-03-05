@@ -77,7 +77,7 @@ page for your repo, and then selecting the webhooks tab on the left.
 
 1. Payload URL: https://bot-gh.vapor.codes/comment  
 Check "Let me select individual events"  
-Uncheck "Pushes"  
+Uncheck "Pushes"
 Check "Issue comments"  
 Hit Save  
 This is the webhook that will be reporting new comments to the bot and will help it listen for commands  

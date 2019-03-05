@@ -19,8 +19,7 @@ public struct CircleCIService: Service {
             
             return client.get(requestURL).flatMap { response in
                 response.http.headers.replaceOrAdd(name: .contentType, value: "application/json")
-                let build = try response.content.decode(CircleCIBuild.self)
-                return build
+                return try response.content.decode(CircleCIBuild.self)
             }
         } catch {
             return req.future(error: error)
@@ -93,7 +92,10 @@ public struct CircleCIService: Service {
             return client.post(requestURL, beforeSend: { request in
                 let body = CircleCIRunJobBody(buildParameters: job)
                 try request.content.encode(body)
-            }).flatMap { try $0.content.decode(CircleCIRunJobResult.self) }
+            }).flatMap { response in
+                response.http.headers.replaceOrAdd(name: .contentType, value: "application/json")
+                return try response.content.decode(CircleCIRunJobResult.self)
+            }
         } catch {
             return req.future(error: error)
         }

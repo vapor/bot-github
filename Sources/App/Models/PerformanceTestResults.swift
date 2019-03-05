@@ -12,7 +12,7 @@ public struct PerformanceTestResults: Content {
     public let change: String
     
     public init(
-        id: Int = 0,
+        id: Int? = nil,
         date: Date,
         repoName: String,
         name: String,
@@ -31,7 +31,7 @@ public struct PerformanceTestResults: Content {
 }
 
 extension PerformanceTestResults: SQLiteModel { }
-
+extension PerformanceTestResults: Migration { }
 
 extension PerformanceTestResults: Rowable {
     public func fields() -> [String] {

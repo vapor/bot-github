@@ -32,22 +32,27 @@ public struct ParsePerformanceTestResultsInteractor {
                 .query(on: req)
                 .filter(\.repoName == repoName)
                 .filter(\.name == name)
-                .sort(\PerformanceTestResults.date, SQLiteDirection.ascending)
+                .sort(\PerformanceTestResults.date, SQLiteDirection.descending)
                 .first()
-                // TODO: Don't actually abort. We need to handle the case that there's no initial data,
-                // and provide some default baseline
-                .unwrap(or: Abort(.notFound))
                 .map { result in
-                    let expected = result.average
-                    
-                    return (
-                        name: name,
-                        expected: expected,
-                        average: average,
-                        change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
-                    )
+                    if let result = result {
+                        let expected = result.average
+                        
+                        return (
+                            name: name,
+                            expected: expected,
+                            average: average,
+                            change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
+                        )
+                    } else {
+                        return (
+                            name: name,
+                            expected: average,
+                            average: average,
+                            change: "\(String(format:"%.2f", Double((average - average))/average * 100))%"
+                        )
+                    }
                 }
-            
         }.flatten(on: req)
         
         return testResults.map { results in
@@ -60,7 +65,6 @@ public struct ParsePerformanceTestResultsInteractor {
                     average: result.average,
                     change: result.change
                 )
-
             }
         }
     }
