@@ -1,55 +1,71 @@
 import Foundation
+import Vapor
+import FluentSQLite
 
 public struct ParsePerformanceTestResultsInteractor {
     enum OutputParsingError: Error {
         case missingTestCases
     }
     
-    public init() { }
     
-    public func execute(output: String) throws -> [PerformanceTestResults] {
+    public func execute(output: String, date: Date, repoName: String, on req: Request) throws -> Future<[PerformanceTestResults]> {
         let doubleChars = [(UInt32("0")...UInt32("9")), (UInt32(".")...UInt32("."))]
             .joined()
             .map { Character(UnicodeScalar($0)!) }
-
+        
         let split = output.split(separator: "\r\n")
-        let filterNonExpected = split.filter { $0.contains("[PERFORMANCE] test") }
         let filterNonPerformance = split.filter { $0.contains("measured [Time") }
-        let expectedResults = filterNonExpected
-            .map { $0.split(separator: " ")[3] }
-            .map { str in str.filter { doubleChars.contains($0) } }
-            .map { Double($0)! }
         let results = filterNonPerformance
             .map { $0.split(separator: " ")[8] }
             .map { str in str.filter { doubleChars.contains($0) } }
             .map { Double($0)! }
-        let names = filterNonExpected
-            .map { $0.split(separator: " ")[1] }
+        let names = filterNonPerformance
+            .map { $0.split(separator: " ")[3].split(separator: ".")[1] }
             .map { funcName in funcName.filter { ("A"..."z").contains($0) } }
             .map { String($0) }
-
-        let testResults = zip(names, zip(results, expectedResults))
-            .map { name, stats -> (name: String, expected: Double, average: Double, change: String) in
-                let (average, expected) = stats
-                
-                return (
-                    name: name,
-                    expected: expected,
-                    average: average,
-                    change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
-                )
-            }
         
-        let codableResults = testResults
-            .map {
+        let partialTestResults = zip(names, results)
+        
+        let testResults = partialTestResults.map { (name, average) -> Future<(name: String, expected: Double, average: Double, change: String)> in
+            
+            return PerformanceTestResults
+                .query(on: req)
+                .filter(\.repoName == repoName)
+                .filter(\.name == name)
+                .sort(\PerformanceTestResults.date, SQLiteDirection.descending)
+                .first()
+                .map { result in
+                    if let result = result {
+                        let expected = result.average
+                        
+                        return (
+                            name: name,
+                            expected: expected,
+                            average: average,
+                            change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
+                        )
+                    } else {
+                        return (
+                            name: name,
+                            expected: average,
+                            average: average,
+                            change: "\(String(format:"%.2f", Double((average - average))/average * 100))%"
+                        )
+                    }
+                }
+        }.flatten(on: req)
+        
+        return testResults.map { results in
+            results.map { result in
                 PerformanceTestResults(
-                    name: $0.name,
-                    expected: $0.expected,
-                    average: $0.average,
-                    change: $0.change
+                    date: date,
+                    repoName: repoName,
+                    name: result.name,
+                    expected: result.expected,
+                    average: result.average,
+                    change: result.change
                 )
             }
-        
-        return codableResults
+        }
     }
 }

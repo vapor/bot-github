@@ -28,19 +28,20 @@ public class GithubCommandRouter: Service {
 extension GithubCommandRouter {
     public func command<T: ResponseEncodable>(
         _ command: String...,
-        closure: @escaping (Request, GithubWebhook) throws -> T
+        closure: @escaping (Request, GithubCommentWebhook) throws -> T
     ) {
         let pathComponents = command.map { component in
             component.split(separator: " ").map {
                 PathComponent.constant(String($0))
             }
         }.flatMap { $0 }
+        
         let responder = BasicResponder { request in
-            try request.content.decode(GithubWebhook.self).flatMap { webhook in
+            try request.content.decode(GithubCommentWebhook.self).flatMap { webhook in
                 try closure(request, webhook).encode(for: request)
             }
-            
         }
+        
         let route = Route<Responder>.init(path: pathComponents, output: responder)
         self.register(route: route)
     }

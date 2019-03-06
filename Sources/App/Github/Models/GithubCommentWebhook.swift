@@ -197,15 +197,18 @@ import Vapor
 //    }
 //}
 
-public struct GithubWebhook: Content {
+// Merged PR webhook'
+
+public struct GithubCommentWebhook: Content {
     public let comment: GithubComment?
     public let repository: GithubRepository
     public let issue: GithubIssue
-    
+    public let action: String
     
     enum CodingKeys: String, CodingKey {
         case comment
         case repository
         case issue
+        case action
     }
 }

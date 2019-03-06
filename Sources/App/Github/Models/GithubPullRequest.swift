@@ -11,6 +11,7 @@ public struct GithubPullRequestHead: Content {
 public struct GithubPullRequest: Content {
     let id: Int
     let head: GithubPullRequestHead
+    let merged: Bool
     //{
     //    "url": "https://api.github.com/repos/twof/FlaskOnAWS/pulls/3",
     //    "id": 254788484,
