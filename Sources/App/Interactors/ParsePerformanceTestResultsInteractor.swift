@@ -1,12 +1,11 @@
 import Foundation
 import Vapor
-import FluentSQLite
+import FluentPostgreSQL
 
 public struct ParsePerformanceTestResultsInteractor {
     enum OutputParsingError: Error {
         case missingTestCases
     }
-    
     
     public func execute(output: String, date: Date, repoName: String, on req: Request) throws -> Future<[PerformanceTestResults]> {
         let doubleChars = [(UInt32("0")...UInt32("9")), (UInt32(".")...UInt32("."))]
@@ -26,13 +25,12 @@ public struct ParsePerformanceTestResultsInteractor {
         
         let partialTestResults = zip(names, results)
         
-        let testResults = partialTestResults.map { (name, average) -> Future<(name: String, expected: Double, average: Double, change: String)> in
-            
+        let testResults = partialTestResults.map { name, average -> Future<(name: String, expected: Double, average: Double, change: String)> in
             return PerformanceTestResults
                 .query(on: req)
                 .filter(\.repoName == repoName)
                 .filter(\.name == name)
-                .sort(\PerformanceTestResults.date, SQLiteDirection.descending)
+                .sort(\PerformanceTestResults.date, PostgreSQLDirection.descending)
                 .first()
                 .map { result in
                     if let result = result {

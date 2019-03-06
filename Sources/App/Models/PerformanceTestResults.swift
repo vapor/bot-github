@@ -1,6 +1,6 @@
 import Foundation
 import Vapor
-import FluentSQLite
+import FluentPostgreSQL
 
 public struct PerformanceTestResults: Content {
     public var id: Int?
@@ -30,7 +30,7 @@ public struct PerformanceTestResults: Content {
     }
 }
 
-extension PerformanceTestResults: SQLiteModel { }
+extension PerformanceTestResults: PostgreSQLModel { }
 extension PerformanceTestResults: Migration { }
 
 extension PerformanceTestResults: Rowable {
