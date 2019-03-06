@@ -12,7 +12,9 @@ public func routes(_ router: Router) throws {
         return "Hello, world!"
     }
     
-    router.post(GithubPullRequestWebhook.self, at: "pullRequestActivity") { (req, webhook) -> Future<Response> in
+    let githubRoutes = router.grouped("github")
+    
+    githubRoutes.post(GithubPullRequestWebhook.self, at: "pr") { (req, webhook) -> Future<Response> in
         // This route will only be responding to merges
         guard
             webhook.action == "closed",
@@ -33,7 +35,7 @@ public func routes(_ router: Router) throws {
         }.transform(to: try HTTPStatus.ok.encode(for: req))
     }
    
-    router.post(GithubCommentWebhook.self, at: "comment") { (req, webhook) -> Future<Response> in
+    githubRoutes.post(GithubCommentWebhook.self, at: "comment") { (req, webhook) -> Future<Response> in
         guard
             let comment = webhook.comment,
             comment.user.login != "vapor-bot"
@@ -56,100 +58,65 @@ public func routes(_ router: Router) throws {
         case parsingFailed
     }
     
-    // This error type only exists to exit the pipeline early
-    enum SkipError: Error {
-        case skip
-    }
+    let circleGroup = router.grouped("circle")
     
-    router.post(CircleCIWebhook.self, at: "circle") { (req, webhook) -> Future<HTTPStatus> in
+    circleGroup.post(CircleCIWebhook.self, at: "result") { (req, webhook) -> Future<Response> in
         print("test starting", webhook.buildName)
         
+        let saveResultsInteractor = SaveTestResultsInteractor()
+        let commentResultsInteractor = CommentTestResultsTableInteractor()
+        
         // Only dealing with perf tests
-        guard webhook.buildName == "linux-performance" else { return req.future(.ok) }
+        guard webhook.buildName == "linux-performance" else {
+            return try HTTPStatus.ok.encode(for: req)
+        }
      
         let circle = try req.make(CircleCIService.self)
-        let github = try req.make(GithubService.self)
         
         let repo = "\(webhook.username)/\(webhook.repoName)"
         
         return circle
             .getOutput(for: webhook.buildNumber, repo: repo, step: "swift test", on: req)
-            .flatMap { (output, build) -> Future<HTTPStatus> in
+            .flatMap { output, build -> Future<Response> in
+                let performanceTestParser = ParsePerformanceTestResultsInteractor()
+                guard let testResults = try? performanceTestParser
+                    .execute(
+                        output: output.message,
+                        date: build.startTime,
+                        repoName: build.repoName,
+                        on: req
+                ) else {
+                    return req.future(error: ParsingError.parsingFailed)
+                }
+                
                 return try req
-                    .keyedCache(for: .sqlite)
-                    .get(String(webhook.buildNumber), as: Bool.self)
-                    .flatMap { maybeTracked -> Future<[PerformanceTestResults]> in
-                        let performanceTestParser = ParsePerformanceTestResultsInteractor()
-                        guard let testResults = try? performanceTestParser
-                            .execute(
-                                output: output.message,
-                                date: build.startTime,
-                                repoName: build.repoName,
-                                on: req
-                        ) else {
-                            return req.future(error: ParsingError.parsingFailed)
-                        }
-
-                        // if this test is the result of a merge
-                        if maybeTracked != nil {
-                            return testResults.flatMap { result in
-                                return result.map { $0.create(on: req) }.flatten(on: req)
-                            }.flatMap { results in
-                                // Skipping down to the catch map
-                                return req.future(error: SkipError.skip)
-                            }
+                    .cacheContains(key: String(webhook.buildNumber), databaseIdentifier: .sqlite)
+                    .flatMap { isResultOfMerge -> Future<Response> in
+                        if isResultOfMerge {
+                            return saveResultsInteractor
+                                .execute(on: req, testResults: testResults)
                         } else {
-                            return testResults
+                            return commentResultsInteractor
+                                .execute(
+                                    on: req,
+                                    testResults: testResults,
+                                    build: build,
+                                    repo: repo
+                                )
                         }
-                    }.flatMap { testResults -> Future<Response> in
-                        guard build.pullRequests.count > 0 else { throw Abort(.notFound) }
-                        let pullRequest = build.pullRequests[0]
-                        
-                        guard
-                            let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
-                            let issueNumber = Int(issueNumberString)
-                        else {
-                            throw Abort(.notFound)
-                        }
-                        
-                        let tableGenerator = GithubTableGenerator(
-                            columns: "Name", "Expected", "Actual", "Change",
-                            rows: testResults
-                        )
-                        
-                        let createCommentResponse: Future<CreateCommentResponse> = github.postComment(
-                            repo: repo,
-                            issue: issueNumber,
-                            body: tableGenerator.table,
-                            on: req
-                        )
-                        
-                        return try createCommentResponse.encode(for: req)
                     }.catchFlatMap { error -> Future<Response> in
                         if let error = error as? ParsingError, error == .parsingFailed {
-                            guard build.pullRequests.count > 0 else {
-                                return req.future(error: Abort(HTTPStatus.ok))
-                            }
-                            let pullRequest = build.pullRequests[0]
-                            
-                            guard
-                                let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
-                                let issueNumber = Int(issueNumberString)
-                            else {
-                                return req.future(error: Abort(.notFound))
-                            }
-                            
-                            return try github.postComment(
-                                repo: repo,
-                                issue: issueNumber,
-                                body: "Performance tests failed in an unexpected way",
-                                on: req
-                            ).encode(for: req)
-                        } else if let error = error as? SkipError, error == .skip {
-                            return try HTTPStatus.ok.encode(for: req)
+                            let commentErrorInteractor = CommentErrorInteractor()
+                            return commentErrorInteractor
+                                .execute(
+                                    on: req,
+                                    build: build,
+                                    repo: repo,
+                                    message: "Performance test results could not be parsed"
+                                )
                         }
                         return req.future(error: error)
-                    }.transform(to: .ok)
+                    }
             }
     }
     

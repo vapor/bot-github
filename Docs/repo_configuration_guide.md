@@ -55,7 +55,7 @@ workflows:
       - linux-release
 notify:
   webhooks:
-    - url: https://bot-gh.vapor.codes/circle
+    - url: https://bot-gh.vapor.codes/circle/result
 ```
 
 ### Steps
@@ -64,7 +64,7 @@ notify:
 ```yml
 notify:
   webhooks:
-    - url: https://bot-gh.vapor.codes/circle
+    - url: https://bot-gh.vapor.codes/circle/result
 ```
 2. Create a job called `linux-performance`, but don't add it to the workflow
 3. `linux-performance` should be run with `-c release`, and use the filter flag to select only performance tests
@@ -75,14 +75,14 @@ notify:
 On Github, you'll have to set up a couple webhooks. You can find webhook setup by navigating to the settings
 page for your repo, and then selecting the webhooks tab on the left.
 
-1. Payload URL: https://bot-gh.vapor.codes/comment  
+1. Payload URL: https://bot-gh.vapor.codes/github/comment  
 Check "Let me select individual events"  
 Uncheck "Pushes"
 Check "Issue comments"  
 Hit Save  
 This is the webhook that will be reporting new comments to the bot and will help it listen for commands  
 
-2. Payload URL: https://bot-gh.vapor.codes/pullRequestActivity  
+2. Payload URL: https://bot-gh.vapor.codes/github/pr  
 Check "Let me select individual events"  
 Uncheck "Pushes"  
 Check "Pull requests"  
