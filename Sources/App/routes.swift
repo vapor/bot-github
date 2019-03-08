@@ -31,7 +31,7 @@ public func routes(_ router: Router) throws {
             branch: "master",
             on: req
         ).map { result in
-            return try req.keyedCache(for: .sqlite).set(String(result.buildNumber), to: true)
+            return try req.keyedCache(for: .psql).set(String(result.buildNumber), to: true)
         }.transform(to: try HTTPStatus.ok.encode(for: req))
     }
    
@@ -90,7 +90,7 @@ public func routes(_ router: Router) throws {
                 }
                 
                 return try req
-                    .cacheContains(key: String(webhook.buildNumber), databaseIdentifier: .sqlite)
+                    .cacheContains(key: String(webhook.buildNumber), databaseIdentifier: .psql)
                     .flatMap { isResultOfMerge -> Future<Response> in
                         if isResultOfMerge {
                             return saveResultsInteractor
@@ -124,3 +124,4 @@ public func routes(_ router: Router) throws {
         return PerformanceTestResults.query(on: req).all()
     }
 }
+
