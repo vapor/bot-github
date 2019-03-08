@@ -52,6 +52,8 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 }
 
 fileprivate func dbConfig(environment: Environment) throws -> PostgreSQLDatabaseConfig {
+    
+    
     // Configure a database
     let databaseConfig: PostgreSQLDatabaseConfig
     let hostname = Environment.get("DATABASE_HOSTNAME") ?? "localhost"
@@ -59,6 +61,10 @@ fileprivate func dbConfig(environment: Environment) throws -> PostgreSQLDatabase
     let password: String? = Environment.get("DATABASE_PASSWORD") ?? nil
     let databaseName: String?
     let databasePort: Int
+    
+    if let url: String = Environment.get("DATABASE_URL") {
+        return PostgreSQLDatabaseConfig(url: url)!
+    }
     
     switch environment {
     case .testing:
