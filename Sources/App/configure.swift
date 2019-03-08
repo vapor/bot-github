@@ -35,7 +35,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
     services.register(middlewares)
 
-    let postgresql = try PostgreSQLDatabase(config: dbConfig(environment: Environment.detect()))
+    let postgresql = try PostgreSQLDatabase(
+        config: dbConfig(environment: Environment.detect())
+    )
 
     /// Register the configured PostgreSQL database to the database config.
     var databases = DatabasesConfig()
@@ -50,10 +52,19 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 }
 
 fileprivate func dbConfig(environment: Environment) throws -> PostgreSQLDatabaseConfig {
+    // Configure a database
+    let databaseConfig: PostgreSQLDatabaseConfig
+    let hostname = Environment.get("DATABASE_HOSTNAME") ?? "localhost"
+    let username = Environment.get("DATABASE_USER") ?? "vapor"
+    let password: String? = Environment.get("DATABASE_PASSWORD") ?? nil
+    let databaseName: String?
+    let databasePort: Int
+    
     switch environment {
-    case .development:
-        return PostgreSQLDatabaseConfig.init(hostname: "localhost", port: 5433, username: "postgres")
-    default:
+    case .testing:
+        databasePort = Environment.get("DATABASE_PORT") ?? 5433
+        databaseName = "vapor-test"
+    case .production:
         guard let url: String = Environment.get("DB_POSTGRESQL") else {
             throw Abort(.internalServerError, reason: "No DB_POSTGRESQL env var set")
         }
@@ -61,5 +72,21 @@ fileprivate func dbConfig(environment: Environment) throws -> PostgreSQLDatabase
             throw Abort(.internalServerError, reason: "Could not create PostgreSQL config from DB_POSTGRESQL env var")
         }
         return config
+    case .development:
+        databaseName = Environment.get("DATABASE_DB") ?? nil
+        databasePort = Environment.get("DATABASE_PORT") ?? 5432
+    default:
+        databaseName = Environment.get("DATABASE_DB") ?? "vapor"
+        databasePort = Environment.get("DATABASE_PORT") ?? 5432
     }
+    
+    databaseConfig = PostgreSQLDatabaseConfig(
+        hostname: hostname,
+        port: databasePort,
+        username: username,
+        database: databaseName,
+        password: password
+    )
+    
+    return databaseConfig
 }
