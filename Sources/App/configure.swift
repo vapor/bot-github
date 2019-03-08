@@ -62,7 +62,7 @@ fileprivate func dbConfig(environment: Environment) throws -> PostgreSQLDatabase
     
     switch environment {
     case .testing:
-        databasePort = Environment.get("DATABASE_PORT") ?? 5433
+        databasePort = Environment.get("DATABASE_PORT") ?? 5432
         databaseName = "vapor-test"
     case .production:
         guard let url: String = Environment.get("DB_POSTGRESQL") else {
