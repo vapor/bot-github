@@ -59,7 +59,20 @@ public struct CircleCIService: Service {
     }
     
     fileprivate func getOutput(for buildStep: String, from build: CircleCIBuild, on req: Request) -> Future<CircleCIBuildOutput> {
+        let logger: Logger
+        
+        do {
+            logger = try req.make(Logger.self)
+        } catch {
+            return req.future(
+                error: ServiceError(
+                    identifier: "Logger",
+                    reason: "Logger could not be created in ParsePerformanceTestResultsInteractor"
+                )
+            )
+        }
         guard let step = (build.steps.first { $0.name == buildStep }) else {
+            logger.error("Couldn't get first build step")
             return req.future(error: Abort(.notFound))
         }
         

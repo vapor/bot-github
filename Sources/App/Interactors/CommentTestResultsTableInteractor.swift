@@ -13,14 +13,23 @@ public struct CommentTestResultsTableInteractor {
             )
         }
         
+        guard let logger = try? req.make(Logger.self) else {
+            return req.future(
+                error: ServiceError(identifier: "Logger", reason: "Logger could not be created")
+            )
+        }
+        
         return testResults.flatMap { testResults -> Future<Response> in
-            guard build.pullRequests.count > 0 else { throw Abort(.notFound) }
-            let pullRequest = build.pullRequests[0]
+            guard let pullRequest = build.pullRequests.first else {
+                logger.error("There were no pull requests associated with build \(build.number)")
+                throw Abort(.notFound)
+            }
             
             guard
                 let issueNumberString = pullRequest.url.absoluteString.split(separator: "/").last,
                 let issueNumber = Int(issueNumberString)
                 else {
+                    logger.error("Couldn't parse out the issue number string for build \(build.number)")
                     throw Abort(.notFound)
             }
             

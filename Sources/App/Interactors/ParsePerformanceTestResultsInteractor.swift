@@ -7,7 +7,27 @@ public struct ParsePerformanceTestResultsInteractor {
         case missingTestCases
     }
     
-    public func execute(output: String, date: Date, repoName: String, on req: Request) throws -> Future<[PerformanceTestResults]> {
+    public func execute(
+        output: String,
+        date: Date,
+        repoName: String,
+        on req: Request
+    ) -> Future<[PerformanceTestResults]> {
+        let logger: Logger
+        
+        do {
+            logger = try req.make(Logger.self)
+        } catch {
+            return req.future(
+                error: ServiceError(
+                    identifier: "Logger",
+                    reason: "Logger could not be created in ParsePerformanceTestResultsInteractor"
+                )
+            )
+        }
+        
+        logger.debug("Parsing output from \(repoName)")
+        
         let doubleChars = [(UInt32("0")...UInt32("9")), (UInt32(".")...UInt32("."))]
             .joined()
             .map { Character(UnicodeScalar($0)!) }
@@ -34,6 +54,7 @@ public struct ParsePerformanceTestResultsInteractor {
                 .first()
                 .map { result in
                     if let result = result {
+                        logger.debug("Past results found for \(name): \(repoName)")
                         let expected = result.average
                         
                         return (
@@ -43,6 +64,7 @@ public struct ParsePerformanceTestResultsInteractor {
                             change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
                         )
                     } else {
+                        logger.debug("Past results not found for \(name): \(repoName)")
                         return (
                             name: name,
                             expected: average,

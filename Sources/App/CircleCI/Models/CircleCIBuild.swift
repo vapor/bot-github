@@ -29,6 +29,7 @@ public struct CircleCIBuild: Content {
     public var job: String {
         return self.buildParams.circleJob
     }
+    public let number: Int
     
     
     enum CodingKeys: String, CodingKey {
@@ -37,7 +38,7 @@ public struct CircleCIBuild: Content {
         case pullRequests = "pull_requests"
         case startTime = "start_time"
         case repoName = "reponame"
-        
+        case number = "build_num"
     }
     
     public init(from decoder: Decoder) throws {
@@ -47,6 +48,7 @@ public struct CircleCIBuild: Content {
         self.steps = try container.decode([CircleCIBuildStep].self, forKey: .steps)
         self.pullRequests = try container.decode([CircleCIPullRequest].self, forKey: .pullRequests)
         self.repoName = try container.decode(String.self, forKey: .repoName)
+        self.number = try container.decode(Int.self, forKey: .number)
         
         let dateString = try container.decode(String.self, forKey: .startTime)
         let formatter = DateFormatter.iso8601Full
