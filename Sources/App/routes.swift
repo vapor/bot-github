@@ -120,7 +120,7 @@ public func routes(_ router: Router) throws {
             }
     }
     
-    router.get("perf") { (req) -> Future<[PerformanceTestResults]> in
+    router.get("perf") { (req) -> Future<[String: [PerformanceTestResults]]> in
         return PerformanceTestResults.query(on: req).all()
     }
 }
