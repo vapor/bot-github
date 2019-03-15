@@ -1,6 +1,6 @@
 import Vapor
 
-public struct LogRequestMiddleware: Middleware {
+public struct LogRequestMiddleware: Middleware, Service {
     public func respond(to request: Request, chainingTo next: Responder) throws -> EventLoopFuture<Response> {
         let logger = try request.make(Logger.self)
         

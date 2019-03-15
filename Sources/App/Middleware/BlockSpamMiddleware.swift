@@ -2,7 +2,7 @@ import Vapor
 
 
 /// Blocks requests from crawlers for security and to prevent clogging up logs
-public struct BlockSpamMiddleware: Middleware {
+public struct BlockSpamMiddleware: Middleware, Service {
     let spamList = [".jsp", ".php", ".exe"]
     
     public func respond(to request: Request, chainingTo next: Responder) throws -> EventLoopFuture<Response> {
