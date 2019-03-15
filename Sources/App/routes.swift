@@ -126,4 +126,3 @@ public func routes(_ router: Router) throws {
         return PerformanceTestResults.query(on: req).all()
     }
 }
-
