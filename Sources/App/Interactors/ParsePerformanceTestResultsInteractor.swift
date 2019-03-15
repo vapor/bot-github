@@ -26,7 +26,7 @@ public struct ParsePerformanceTestResultsInteractor {
             )
         }
         
-        logger.debug("Parsing output from \(repoName)")
+        logger.info("Parsing output from \(repoName)")
         
         let doubleChars = [(UInt32("0")...UInt32("9")), (UInt32(".")...UInt32("."))]
             .joined()
@@ -54,7 +54,7 @@ public struct ParsePerformanceTestResultsInteractor {
                 .first()
                 .map { result in
                     if let result = result {
-                        logger.debug("Past results found for \(name): \(repoName)")
+                        logger.info("Past results found for \(name): \(repoName)")
                         let expected = result.average
                         
                         return (
@@ -64,7 +64,7 @@ public struct ParsePerformanceTestResultsInteractor {
                             change: "\(String(format:"%.2f", Double((expected - average))/expected * 100))%"
                         )
                     } else {
-                        logger.debug("Past results not found for \(name): \(repoName)")
+                        logger.info("Past results not found for \(name): \(repoName)")
                         return (
                             name: name,
                             expected: average,

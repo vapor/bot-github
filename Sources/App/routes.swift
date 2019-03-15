@@ -63,7 +63,7 @@ public func routes(_ router: Router) throws {
     circleGroup.post(CircleCIWebhook.self, at: "result") { (req, webhook) -> Future<Response> in
         let logger = try req.make(Logger.self)
         
-        logger.debug("Finished build: \(webhook.buildName)")
+        logger.info("Finished build: \(webhook.buildName)")
         
         let saveResultsInteractor = SaveTestResultsInteractor()
         let commentResultsInteractor = CommentTestResultsTableInteractor()
@@ -93,11 +93,11 @@ public func routes(_ router: Router) throws {
                     .cacheContains(key: String(webhook.buildNumber), databaseIdentifier: .psql)
                     .flatMap { isResultOfMerge -> Future<Response> in
                         if isResultOfMerge {
-                            logger.debug("Job number \(build.job) is the result of a merge")
+                            logger.info("Job number \(build.job) is the result of a merge")
                             return saveResultsInteractor
                                 .execute(on: req, testResults: testResults)
                         } else {
-                            logger.debug("Job number \(build.job) is not the result of a merge")
+                            logger.info("Job number \(build.job) is not the result of a merge")
                             return commentResultsInteractor
                                 .execute(
                                     on: req,
