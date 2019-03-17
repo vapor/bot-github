@@ -1,6 +1,7 @@
 import FluentPostgreSQL
 import Vapor
 import VaporExt
+import Boomerang
 
 /// Called before your application initializes.
 public func configure(_ config: inout Config, _ env: inout Environment, _ services: inout Services) throws {
@@ -28,12 +29,16 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     let githubRouter = GithubCommandRouter()
     try githubRoutes(router: githubRouter)
     services.register(githubRouter)
+    
+    // Request Logger
+    let boomerangMiddleware = BoomerangMiddleware { (req, logger) in
+        logger.info("Incoming request at \(req.http.method.string) \(req.http.urlString)")
+    }
+    services.register(boomerangMiddleware)
 
     // Register middleware
     var middlewares = MiddlewareConfig() // Create _empty_ middleware config
-    // middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
-    services.register(LogRequestMiddleware())
-    middlewares.use(LogRequestMiddleware.self)
+    middlewares.use(BoomerangMiddleware.self)
     services.register(BlockSpamMiddleware())
     middlewares.use(BlockSpamMiddleware.self)
     middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response

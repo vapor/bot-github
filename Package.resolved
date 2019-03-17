@@ -2,6 +2,15 @@
   "object": {
     "pins": [
       {
+        "package": "Boomerang",
+        "repositoryURL": "https://github.com/twof/Boomerang.git",
+        "state": {
+          "branch": null,
+          "revision": "bf32bbc2d89c5ac3fa6cd21fa5c6c87ea05f22fe",
+          "version": "0.0.2"
+        }
+      },
+      {
         "package": "Console",
         "repositoryURL": "https://github.com/vapor/console.git",
         "state": {
